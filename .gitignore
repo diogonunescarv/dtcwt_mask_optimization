@@ -1,0 +1,59 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Images — NEVER commit processed or original face images
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.webp
+*.gif
+*.tiff
+*.tif
+
+# Local data / experiment outputs (root-anchored; do not ignore protego_base/smirk/datasets/)
+/data/
+/datasets/
+face_db/
+experiments/
+results/
+/outputs/
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.csv
+*.log
+
+# Notebooks checkpoints
+notebooks/.ipynb_checkpoints/
+
+# Protego upstream download artifacts (keep clone, ignore heavy assets)
+protego_base/face_db/
+protego_base/experiments/
+protego_base/results/
+protego_base/FR_DB/*/pretrained/
+protego_base/FD_DB/*/pretrained/
+protego_base/smirk/pretrained_models/
+protego_base/smirk/assets/
+protego_base/pytorch3d/
+protego_base/tmp/
