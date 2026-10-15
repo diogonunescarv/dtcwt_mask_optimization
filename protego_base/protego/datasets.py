@@ -28,6 +28,12 @@ DATASET_ROOTS: Dict[str, str] = {
     "celebahq_pp_frontal": "/mnt/databases/faces/celebahq_pp_frontal",
 }
 
+# Virtual dataset: LFW train + CelebA-HQ (Phase 3.2). Not a path on disk.
+MERGED_DATASET = "merged_lfw_celeba"
+DATASET_CHOICES: Tuple[str, ...] = tuple(
+    sorted(list(DATASET_ROOTS.keys()) + [MERGED_DATASET])
+)
+
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
 
 
@@ -88,12 +94,82 @@ def resolve_split_dir(dataset_name: str, split: str = "train") -> str:
     return root
 
 
+def build_merged_train_paths(
+    max_train: Optional[int] = None,
+    seed: int = 42,
+) -> List[str]:
+    """
+    Concatenate LFW ``faces_train`` + CelebA-HQ frontal, shuffle, optional cap.
+
+    Used by Phase 3.2 ``merged_lfw_celeba`` training runs.
+    """
+    lfw = list_image_paths(resolve_split_dir("lfw_frontal", "train"))
+    celeba = list_image_paths(resolve_split_dir("celebahq_pp_frontal", "all"))
+    paths = list(lfw) + list(celeba)
+    rng = np.random.default_rng(seed)
+    rng.shuffle(paths)
+    if max_train is not None:
+        paths = paths[:max_train]
+    return paths
+
+
+def build_merged_frac_split(
+    celeba_train_frac: float = 0.5,
+    data_seed: int = 42,
+    max_train: Optional[int] = None,
+) -> Tuple[List[str], List[str], Dict[str, int]]:
+    """
+    Phase 3.3 on-the-fly split (no new dataset on disk).
+
+    Train = all LFW ``faces_train`` + a seeded fraction of CelebA-HQ.
+    Eval  = LFW ``faces_test`` ∪ CelebA holdout (the complementary fraction).
+
+    Reproducible via ``(data_seed, celeba_train_frac)`` without storing path lists.
+    """
+    if not 0.0 < celeba_train_frac <= 1.0:
+        raise ValueError(
+            f"celeba_train_frac must be in (0, 1], got {celeba_train_frac}"
+        )
+
+    lfw_train = list_image_paths(resolve_split_dir("lfw_frontal", "train"))
+    lfw_test = list_image_paths(resolve_split_dir("lfw_frontal", "test"))
+    celeba = list_image_paths(resolve_split_dir("celebahq_pp_frontal", "all"))
+
+    rng = np.random.default_rng(data_seed)
+    celeba_shuffled = list(celeba)
+    rng.shuffle(celeba_shuffled)
+    n_celeba_train = int(np.floor(celeba_train_frac * len(celeba_shuffled)))
+    celeba_train = celeba_shuffled[:n_celeba_train]
+    celeba_eval = celeba_shuffled[n_celeba_train:]
+
+    train_paths = list(lfw_train) + list(celeba_train)
+    # Shuffle train so LFW/CelebA mix within epochs (same seed stream after CelebA).
+    rng.shuffle(train_paths)
+    if max_train is not None:
+        train_paths = train_paths[:max_train]
+
+    eval_paths = list(lfw_test) + list(celeba_eval)
+    stats = {
+        "n_lfw_train": len(lfw_train),
+        "n_lfw_test": len(lfw_test),
+        "n_celeba_total": len(celeba),
+        "n_celeba_train": len(celeba_train),
+        "n_celeba_eval": len(celeba_eval),
+        "n_train_total": len(train_paths),
+        "n_eval_total": len(eval_paths),
+    }
+    return train_paths, eval_paths, stats
+
+
 def build_flat_data_dict(
     dataset_name: str,
     train_split: str = "train",
     eval_split: Optional[str] = "test",
     max_train: Optional[int] = None,
     max_eval: Optional[int] = None,
+    seed: int = 42,
+    celeba_train_frac: Optional[float] = None,
+    data_seed: Optional[int] = None,
 ) -> Dict[str, Dict[str, List[str]]]:
     """
     Build a Protego-compatible ``data`` dict WITHOUT identity grouping.
@@ -102,16 +178,57 @@ def build_flat_data_dict(
     multiple images per identity, we expose a single synthetic protectee
     named after the dataset, containing independent face images.
 
+    ``merged_lfw_celeba`` concatenates LFW train + CelebA-HQ (shuffled).
+
+    When ``celeba_train_frac`` is set (Phase 3.3), uses
+    :func:`build_merged_frac_split` (LFW-all + seeded CelebA fraction).
+    Otherwise keeps the Phase 3.2 shuffle+cap behaviour.
+
     Returns:
-        ``{dataset_name: {"train": [...], "eval": [...]}}``
+        ``{dataset_name: {"train": [...], "eval": [...], "split_stats": {...}?}}``
     """
+    if dataset_name == MERGED_DATASET:
+        if celeba_train_frac is not None:
+            ds = int(seed if data_seed is None else data_seed)
+            train_paths, eval_paths, split_stats = build_merged_frac_split(
+                celeba_train_frac=float(celeba_train_frac),
+                data_seed=ds,
+                max_train=max_train,
+            )
+            if eval_split is None:
+                eval_paths = []
+            elif max_eval is not None:
+                eval_paths = eval_paths[:max_eval]
+            return {
+                dataset_name: {
+                    "train": train_paths,
+                    "eval": eval_paths,
+                    "split_stats": split_stats,
+                }
+            }
+
+        train_paths = build_merged_train_paths(max_train=max_train, seed=seed)
+        if eval_split is None:
+            eval_paths = []
+        else:
+            # Eval: LFW faces_test (held-out frontal split).
+            eval_paths = list_image_paths(resolve_split_dir("lfw_frontal", "test"))
+            if max_eval is not None:
+                eval_paths = eval_paths[:max_eval]
+        return {dataset_name: {"train": train_paths, "eval": eval_paths}}
+
+    if dataset_name not in DATASET_ROOTS:
+        raise ValueError(
+            f"Unknown dataset '{dataset_name}'. Supported: {list(DATASET_CHOICES)}"
+        )
+
     train_dir = resolve_split_dir(dataset_name, split=train_split)
     train_paths = list_image_paths(train_dir)
     if max_train is not None:
         train_paths = train_paths[:max_train]
 
     if eval_split is None:
-        eval_paths: List[str] = []
+        eval_paths = []
     else:
         if dataset_name == "celebahq_pp_frontal":
             # No official test split: reuse the same pool, disjoint by index

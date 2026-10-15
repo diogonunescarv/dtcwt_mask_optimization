@@ -63,19 +63,45 @@ Seja $W_x$ os coeficientes da DT-CWT da face, e $\Delta W_{meta}$ a nossa Másca
 - [x] Atualizar o `README.md`.
 
 ### Fase 2: Implementação do Módulo DT-CWT Diferenciável
-- [ ] Criar um módulo PyTorch que receba uma imagem, aplique o `DTCWTForward`, adicione um tensor de `meta_mask` (modificando magnitude e fase nos Níveis 2 e 3) e reconstrua com `DTCWTInverse`.
-- [ ] O Nível 1 da DT-CWT (altas frequências extremas) deve ser ignorado na otimização (congelado/zero) para evitar sensibilidade à compressão JPEG.
-- [ ] Criar o teste funcional para garantir a diferenciabilidade (se os gradientes fluem corretamente da imagem reconstruída até à máscara).
-- [ ] Atualizar o `README.md`.
+- [x] Criar um módulo PyTorch que receba uma imagem, aplique o `DTCWTForward`, adicione um tensor de `meta_mask` (modificando magnitude e fase nos Níveis 2 e 3) e reconstrua com `DTCWTInverse`.
+- [x] O Nível 1 da DT-CWT (altas frequências extremas) deve ser ignorado na otimização (congelado/zero) para evitar sensibilidade à compressão JPEG.
+- [x] Criar o teste funcional para garantir a diferenciabilidade (se os gradientes fluem corretamente da imagem reconstruída até à máscara).
+- [x] Atualizar o `README.md`.
 
 ### Fase 3: Treino Offline da Máscara Base (Meta-Máscara)
-- [ ] Implementar a `Frequency Dispersion Loss` (`-log(det(G))`).
-- [ ] Criar o script de treino: carregar um batch das bases LFW/CelebA-HQ e extrair a DT-CWT.
-- [ ] Geração do Lote Local: Somar a `meta_mask` e gerar $K$ variações aplicando minúsculas perturbações aleatórias na fase/magnitude.
-- [ ] Passar as variações pelo modelo FR, calcular a matriz de Gram e retropropagar os gradientes **apenas** para atualizar os tensores da `meta_mask`.
-- [ ] Salvar a máscara final otimizada em `/mnt/study-data/dcarvalho/tests/` (ex: `.pt` ou `.safetensors`).
-- [ ] Criar shell scripts em `/scripts` para rodar o treino.
-- [ ] Atualizar o `README.md`.
+- [x] Implementar a `Frequency Dispersion Loss` (`-log(det(G))`).
+- [x] Criar o script de treino: carregar um batch das bases LFW/CelebA-HQ e extrair a DT-CWT.
+- [x] Geração do Lote Local: Somar a `meta_mask` e gerar $K$ variações aplicando minúsculas perturbações aleatórias na fase/magnitude.
+- [x] Passar as variações pelo modelo FR, calcular a matriz de Gram e retropropagar os gradientes **apenas** para atualizar os tensores da `meta_mask`.
+- [x] Salvar a máscara final otimizada em `/mnt/study-data/dcarvalho/tests/` (ex: `.pt` ou `.safetensors`).
+- [x] Criar shell scripts em `/scripts` para rodar o treino.
+- [x] Atualizar o `README.md`.
+
+### Fase 3.1: Qualidade na Criação da Meta-Máscara (SSIM + L∞)
+- [x] Adaptar os controlos de qualidade do Protego ao domínio DT-CWT (após IDT-CWT, sem UV/`bin_mask`).
+- [x] Aplicar bound L∞ no residual espacial: \(X_{\text{prot}} = X + \mathrm{clamp}(\hat{X}-X, -\varepsilon, \varepsilon)\).
+- [x] Adicionar SSIM hinge `max(min_ssim - SSIM, 0)` com peso adaptativo (igual ao Protego).
+- [x] Combinar com a Frequency Dispersion Loss: \(\mathcal{L} = \mathcal{L}_{\text{disp}} + w \cdot \text{hinge}\).
+- [x] Flags `--epsilon`, `--min_ssim`, `--quality` / `--no_quality`; runs versionadas `phase3_1`.
+- [x] Criar testes funcionais e shell scripts em `/scripts`.
+- [x] Atualizar o `README.md`.
+
+### Fase 3.2: Identidade + Gram entre Batch + Ensemble multi-FR
+- [x] Adicionar termo de identidade \(\mathrm{cos}(f_{\text{orig}}, f_{\text{prot}})\) (minimizar; menor = melhor desidentificação).
+- [x] Adicionar Gram entre identidades do batch (\(-\log\det G_N\)), mantendo a dispersão K-fases.
+- [x] Ensemble multi-FR como no Protego: média das losses por surrogate (BASIC_POOL sem `ir50_adaface_casia` por default).
+- [x] Manter qualidade 3.1 (SSIM hinge + L∞) no caminho 3.2.
+- [x] Dataset virtual `merged_lfw_celeba` (LFW train + CelebA-HQ).
+- [x] Smoke test + script de treino grande (execução manual).
+- [x] Atualizar o `README.md`.
+
+### Fase 3.3: Identity ensemble + SSIM (sem dispersão-K / batch Gram)
+- [x] Flag `--phase33`: \(\mathcal{L}=\overline{\cos}+\text{SSIM hinge}\) (+ L∞); sem `forward_k_variants` / batch Gram.
+- [x] Split on-the-fly: todo `lfw_frontal/faces_train` + fração CelebA (`--celeba_train_frac`, `--data_seed`); eval = LFW test ∪ CelebA holdout.
+- [x] Flag `--optimizer {adam,protego}` (Adam vs sign-SGD estilo Protego).
+- [x] Ensemble default `fr_preset=small` (3 FRs); `full` disponível para hardware maior.
+- [x] Smoke test (`scripts/run_phase3_3_test.sh`); treino full manual (`run_phase3_3_train*.sh`).
+- [x] Notebook de comparação Adam vs Protego + atualizar `README.md`.
 
 ### Fase 4: Pipeline de Inferência Online (Warm-Start + Fine-Tuning Rápido)
 - [ ] Criar o script de inferência (`protect.py`).

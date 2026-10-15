@@ -53,7 +53,18 @@ def download(path: str, url: str) -> None:
             downloaded_f = gdown.download(id=file_id, output=folder, quiet=False)
         elif "usp=sharing" in url or "usp=share_link" in url:
             if "file" in url:
-                downloaded_f = gdown.download(url=url, output=folder, fuzzy=True, quiet=False)
+                # gdown>=5 removed/changed `fuzzy`; extract file id for compatibility.
+                # URLs look like .../file/d/<FILE_ID>/view?usp=sharing
+                file_id = None
+                if "/file/d/" in url:
+                    file_id = url.split("/file/d/")[1].split("/")[0]
+                download_kwargs = {"output": folder, "quiet": False}
+                if file_id:
+                    downloaded_f = gdown.download(id=file_id, **download_kwargs)
+                else:
+                    downloaded_f = gdown.download(url=url, **download_kwargs)
+                if downloaded_f is None:
+                    raise RuntimeError(f"gdown failed to download weights from {url}")
                 if downloaded_f.endswith(".zip"):
                     with zipfile.ZipFile(downloaded_f, 'r') as zip_ref:
                         zip_ref.extractall(folder)

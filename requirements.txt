@@ -15,10 +15,13 @@ PyYAML>=6.0
 matplotlib>=3.7
 timm>=0.9
 ipython>=8.0
+# Required to unpickle AdaFace .ckpt checkpoints (Phase 3.2 ensemble)
+pytorch_lightning>=2.2.1
 
 # Wavelets (Phase 2+)
-# dtcwt
-# pytorch-wavelets
+pytorch-wavelets>=1.3.0
+PyWavelets>=1.4.0
+dtcwt>=0.12.0
 
 # Optional — only required for Protego --original (UV / SMIRK / 3D)
 # mediapipe==0.10.10

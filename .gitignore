@@ -41,18 +41,33 @@ results/
 *.pth
 *.ckpt
 *.safetensors
+*.onnx
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.bin
 *.csv
 *.log
 
-# Notebooks checkpoints
+# Notebooks checkpoints / local outputs
 notebooks/.ipynb_checkpoints/
+notebooks/outputs/
+
+# Local caches (torch hub, insightface, lpips, huggingface)
+.cache/
+**/torch_hub/
+**/.insightface/
 
 # Protego upstream download artifacts (keep clone, ignore heavy assets)
 protego_base/face_db/
 protego_base/experiments/
 protego_base/results/
+protego_base/assets/
 protego_base/FR_DB/*/pretrained/
 protego_base/FD_DB/*/pretrained/
+protego_base/FAttri_DB/
+protego_base/FP_DB/
 protego_base/smirk/pretrained_models/
 protego_base/smirk/assets/
 protego_base/pytorch3d/
